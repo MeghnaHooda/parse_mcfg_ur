@@ -1,0 +1,40 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "parse_mcfg_ur"
+version = "2020.0.0"
+requires-python = ">=3.8"
+authors = [
+  {name = "Meghna Hooda", email = "meghnahooda1706@gmail.com"},
+]
+
+description = "parsing MCFG for Intro to CL class"
+readme = "README.md"
+license = "Apache-2.0"
+license-files = ["LICENCSE"]
+keywords = ["context-free", "cfg", "parsing"]
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Programming Language :: Python"
+]
+
+[project.optional-dependencies]
+gui = ["PyQt5"]
+cli = [
+  "rich",
+  "click",
+]
+
+[project.urls]
+Repository = "https://github.com/MeghnaHooda/parse_mcfg_ur"
+
+[project.scripts]
+spam-cli = "parse_mcfg_ur:main_cli"
+
+[project.gui-scripts]
+spam-gui = "parse_mcfg_ur:main_gui"
+
+[project.entry-points."spam.magical"]
+tomatoes = "parse_mcfg_ur:main_tomatoes"
