@@ -6,7 +6,8 @@ from collections import defaultdict
 from typing import Literal
 from functools import lru_cache
 
-from enum import Enum
+from tree import Tree
+
 
 class NormalForm(Enum):
     CNF = 0

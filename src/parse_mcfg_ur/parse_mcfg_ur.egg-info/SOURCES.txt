@@ -1,0 +1,12 @@
+README.md
+pyproject.toml
+src/parse_mcfg_ur/parse_mcfg_ur.egg-info/PKG-INFO
+src/parse_mcfg_ur/parse_mcfg_ur.egg-info/SOURCES.txt
+src/parse_mcfg_ur/parse_mcfg_ur.egg-info/dependency_links.txt
+src/parse_mcfg_ur/parse_mcfg_ur.egg-info/requires.txt
+src/parse_mcfg_ur/parse_mcfg_ur.egg-info/top_level.txt
+src/parse_mcfg_ur/__init__.py
+src/parse_mcfg_ur/grammar.py
+src/parse_mcfg_ur/parser.py
+src/parse_mcfg_ur/tree.py
+src/parse_mcfg_ur/parse_mcfg_ur.egg-info/SOURCES.txt

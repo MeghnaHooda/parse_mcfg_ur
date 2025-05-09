@@ -1,0 +1,19 @@
+Metadata-Version: 2.4
+Name: parse_mcfg_ur
+Version: 0.1.0
+Summary: parsing MCFG for Intro to CL class
+Author-email: Meghna Hooda <meghnahooda1706@gmail.com>
+License-Expression: Apache-2.0
+Project-URL: Repository, https://github.com/MeghnaHooda/parse_mcfg_ur
+Keywords: context-free,cfg,parsing
+Classifier: Development Status :: 4 - Beta
+Classifier: Programming Language :: Python
+Requires-Python: >=3.8
+Description-Content-Type: text/markdown
+Provides-Extra: gui
+Requires-Dist: PyQt5; extra == "gui"
+Provides-Extra: cli
+Requires-Dist: rich; extra == "cli"
+Requires-Dist: click; extra == "cli"
+
+# parse_mcfg_ur

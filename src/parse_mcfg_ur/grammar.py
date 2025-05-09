@@ -1,8 +1,10 @@
 import re
+from collections import defaultdict
 
 StringVariables = tuple[int, ...]
-SpanMap = dict[int, SpanIndices]
 SpanIndices = tuple[int, ...]
+SpanMap = dict[int, SpanIndices]
+
 
 """Type aliases for readability
 
@@ -156,6 +158,9 @@ class MCFGRule:
         self._right_side = right_side
 
         self._validate()
+    
+    def is_terminal(self):
+        return len(self._right_side) == 1 and isinstance(self._right_side[0], MCFGRuleElement) and not self._right_side[0].string_variables
 
     def to_tuple(self) -> tuple[MCFGRuleElement, tuple[MCFGRuleElement, ...]]:
         return (self._left_side, self._right_side)
@@ -353,7 +358,7 @@ class MCFGRule:
         MCFGRule
             The constructed rule object.
         """
-        elem_strs = re.findall('(\w+)\(((?:\w+,? ?)+?)\)', rule_string)
+        elem_strs = re.findall(r'(\w+)\(((?:\w+,? ?)+?)\)', rule_string)
 
         elem_tuples = [(var, [v.strip()
                               for v in svs.split(',')])
@@ -400,3 +405,117 @@ class MCFGRule:
             raise ValueError(
                 'string_yield is only implemented for epsilon rules'
             )
+
+class MCFGGrammar:
+    def __init__(self, terminals: set[str], nonterminals: dict[str, int], rules: list[MCFGRule], start: str):
+        self.terminals = terminals
+        self.nonterminals = nonterminals  # Nonterminal → arity
+        self.rules = rules
+        self.start = start
+
+    def __repr__(self):
+        return f"MCFGGrammar(start={self.start}, rules={[str(r) for r in self.rules]})"
+
+    def rules_for_lhs(self, lhs: str) -> list[MCFGRule]:
+        return [r for r in self.rules if r._left_side == lhs]
+
+class MCFGChartEntry:
+    def __init__(self, symbol: str, components: list[tuple[int, int]], backpointers=None):
+        self.symbol = symbol
+        self.components = components  # list of (i, j) spans
+        self.backpointers = backpointers or []
+
+    def __repr__(self):
+        print(self.components)
+        spans = ', '.join([f"[{i},{j}]" for i, j in self.components])
+        return f"{self.symbol} → {spans}"
+
+class MCFGChart:
+    def __init__(self, length: int):
+        self.length = length
+        self.entries = defaultdict(set)  # (start, end) → set of MCFGChartEntry
+
+    def add(self, start: int, end: int, entry: MCFGChartEntry):
+        self.entries[(start, end)].add(entry)
+
+    def get(self, start: int, end: int) -> set:
+        return self.entries.get((start, end), set())
+
+    def __getitem__(self, idx):
+        return self.entries[idx]
+
+
+class MCFGParser:
+    def __init__(self, grammar: MCFGGrammar):
+        self.grammar = grammar
+
+    def recognize(self, string: list[str]) -> bool:
+        chart = self._parse(string)
+        for entry in chart.get(0, len(string)):
+            if entry.symbol == self.grammar.start:
+                return True
+        return False
+
+    def _parse(self, string: list[str]) -> MCFGChart:
+        n = len(string)
+        chart = MCFGChart(n)
+
+        # # Step 1: Handle lexical rules (terminals)
+        # for i in range(n):
+        #     token = string[i]
+        #     for rule in self.grammar.rules:
+        #         if not rule.rhs and rule.output == [[token]]:
+        #             entry = MCFGChartEntry(rule._left_side, [(i, i + 1)])
+        #             chart.add(i, i + 1, entry)
+        # Step 1: Handle lexical rules (terminals)
+        for i in range(n):
+            token = string[i]
+            for rule in self.grammar.rules:
+                if rule.is_terminal() and rule.right_side[0].variable == token:
+                    entry = MCFGChartEntry(rule.left_side.variable, [(i, i + 1)])
+                    chart.add(i, i + 1, entry)
+
+
+        # Step 2: Apply binary rules
+        added = True
+        while added:
+            added = False
+            for i in range(n):
+                for j in range(i + 1, n + 1):
+                    for k in range(i + 1, j):
+                        left_entries = chart.get(i, k)
+                        right_entries = chart.get(k, j)
+
+                        for r in self.grammar.rules:
+                            if len(r.rhs) != 2:
+                                continue  # Only binary rules for now
+
+                            left_var = r.rhs[0].var
+                            right_var = r.rhs[1].var
+
+                            for e1 in left_entries:
+                                for e2 in right_entries:
+                                    if e1.symbol == left_var and e2.symbol == right_var:
+                                        # Construct new components using output spec
+                                        new_components = []
+                                        for out in r.output:
+                                            combined = []
+                                            for sym in out:
+                                                if sym == f"{left_var}_0":
+                                                    combined += string[e1.components[0][0]:e1.components[0][1]]
+                                                elif sym == f"{right_var}_0":
+                                                    combined += string[e2.components[0][0]:e2.components[0][1]]
+                                            # For now, treat combined as a flat string span
+                                            span_start = min(e1.components[0][0], e2.components[0][0])
+                                            span_end = max(e1.components[0][1], e2.components[0][1])
+                                            new_components.append((span_start, span_end))
+
+                                        entry = MCFGChartEntry(r._left_side, new_components, backpointers=[e1, e2])
+                                        if entry not in chart.get(new_components[0][0], new_components[0][1]):
+                                            chart.add(new_components[0][0], new_components[0][1], entry)
+                                            added = True
+
+        return chart
+'''
+This version simplifies things by assuming each rule has one output tuple and uses only one span per component.
+'''
