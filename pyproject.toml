@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "parse_mcfg_ur"
-version = "2020.0.0"
+version = "0.1.0"
 requires-python = ">=3.8"
 authors = [
   {name = "Meghna Hooda", email = "meghnahooda1706@gmail.com"},
@@ -30,11 +30,12 @@ cli = [
 [project.urls]
 Repository = "https://github.com/MeghnaHooda/parse_mcfg_ur"
 
-[project.scripts]
-spam-cli = "parse_mcfg_ur:main_cli"
+[tool.setuptools]
+package-dir = {"" = "src"}
 
-[project.gui-scripts]
-spam-gui = "parse_mcfg_ur:main_gui"
+[tool.setuptools.packages.find]
+where = ["src"]
 
-[project.entry-points."spam.magical"]
-tomatoes = "parse_mcfg_ur:main_tomatoes"
+[build-system]
+requires = ["setuptools", "wheel"]
+build-backend = "setuptools.build_meta"
