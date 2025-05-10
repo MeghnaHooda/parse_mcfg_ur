@@ -74,15 +74,21 @@ class TestMCFGRuleParsing:
 @pytest.fixture
 def simple_grammar_text():
         return """
-    S(xy) -> NP(x) VP(y)
-    NP(x) -> D(x)
-    VP(x) -> V(x)
     D(the)
-    V(runs)
+    D(a)
+    N(greyhound)
+    N(human)
+    Vpres(believes)
+    NP(x) -> D(x)
+    NP(x) -> N(x)
+    NP(x) -> N(x)
+    NP(xy) -> D(x) N(y)
+    VP(xy) -> Vpres(x) NP(y)
+    S(xy) -> NP(x) VP(y)
     """.strip()
 @pytest.fixture
-def simple_grammar(sample_grammar_text):
-    return MCFGGrammar(sample_grammar_text)
+def simple_grammar(simple_grammar_text):
+    return MCFGGrammar(simple_grammar_text)
 
 @pytest.fixture
 def parser(simple_grammar):
@@ -90,80 +96,59 @@ def parser(simple_grammar):
 
 class TestMCFGparser:
     def test_parser_recognize_accepts_valid_string(self, parser):
-        string = ["the", "runs"]
+        string = ['the', 'human', 'believes','the', 'greyhound']
         assert parser.recognize(string) == True
 
     def test_parser_recognize_rejects_invalid_string(self, parser):
-        string = ["the", "barks"]
+        string = ['the', 'human']
         assert parser.recognize(string) == False
 
     def test_parser_parse_returns_chart(self, parser):
-        string = ["the", "runs"]
-        chart = parser.parse(string)
+        string = ['the', 'human', 'believes','the', 'greyhound']
+        chart = list(parser.parse(string))
 
-    #     # Should contain an entry for S from 0 to 2
-    #     entries = chart.get(0, 2)
-    #     assert any(entry.symbol == "S" for entry in entries)
+        assert any(entry.variable == "S" for entry in chart)
 
-    # def test_parser_chart_entries_have_backpointers(parser):
-    #     string = ["the", "runs"]
-    #     chart = parser._parse(string)
 
-    #     entries = chart.get(0, 2)
-    #     s_entries = [e for e in entries if e.symbol == "S"]
-    #     assert s_entries, "No S entry found"
-    #     for entry in s_entries:
-    #         assert entry.backpointers is not None
-    #         assert len(entry.backpointers) == 2
+class TestMCFGComponents:
 
-# class TestMCFGComponents:
-     
-#     #  @pytest.fixture(autouse=True)
-#     def grammar(self, sample_grammar_text):
-#         self.grammar = MCFGRule.from_string(sample_grammar_text)
+    def test_mcfg_grammar_parses_all_rules(self, simple_grammar):
+        assert len(simple_grammar) == 11
 
-    # def test_mcfg_grammar_loads_rules(self):
-    #     rules = self.grammar.rules_for_lhs
-    #     assert 'S' in rules
-    #     assert any(rule.left_side == 'S' for rule in self.grammar.rules)
-        # assert any(rule.is_terminal for rule in self.grammar.rules)
+    def test_mcfg_grammar_contains_terminal_and_nonterminal(self,simple_grammar):
+        assert any(rule.is_terminal() for rule in simple_grammar)
+        assert any(rule.left_side.variable == 'S' for rule in simple_grammar)
+        assert any(rule.left_side.variable == 'NP' and len(rule.right_side) == 2 for rule in simple_grammar)
+    def test_chart_add_and_get_single_entry(self):
+        chart = MCFGChart()
+        instance = chart.add('NP', ((0, 2),))
+        assert instance is not None
+        assert instance.variable == 'NP'
+        assert instance.string_spans == ((0, 2),)
 
-    # def test_mcfg_chart_entry_repr(self):
-        # entry = MCFGChartEntry('NP', (['D', 'N'], (0, 1)))
-        # assert repr(entry) == "NP → [D,N], [0,1]"
+        # Duplicate should not be added
+        assert chart.add('NP', ((0, 2),)) is None
 
-    # def test_mcfg_chart_add_and_get_entries(self):
-        # chart = MCFGChart(length=3)
-        # entry1 = MCFGChartEntry('NP', ['D', 'N'], (0, 1))
-        # entry2 = MCFGChartEntry('VP', ['V'], (1, 2))
-        
-        # chart.add(0, 1, entry1)
-        # chart.add(1, 2, entry2)
-
-        # entries_01 = chart.get(0, 1)
-        # entries_12 = chart.get(1, 2)
-
-        # assert entry1 in entries_01
-        # assert entry2 in entries_12
+        entries = chart.get(((0, 2),))
+        assert len(entries) == 1
+        assert entries[0].variable == 'NP'
     
-    # def test_getitem_access(self):
-    #     chart = MCFGChart(length=3)
-    #     # entry = MCFGChartEntry('X', ['A'], [(0, 1)])
-    #     chart.add(0, 1, entry)
-    #     assert entry in chart[0, 1]
+    def test_chart_all_entries(self):
+        chart = MCFGChart()
+        chart.add('D', ((0, 1),))
+        chart.add('N', ((1, 2),))
+        chart.add('NP', ((0, 2),))
 
-    # def test_does_not_duplicate_entries(self):
-    #     chart = MCFGChart(length=3)
-    #     # entry = MCFGChartEntry('X', ['A'], [(0, 1)])
-    #     # chart.add(0, 1, entry)
-    #     chart.add(0, 1, entry)  # Add again
+        entries = chart.all_entries()
+        assert len(entries) == 3
+        vars_in_chart = {entry.variable for entry in entries}
+        assert vars_in_chart == {'D', 'N', 'NP'}
 
-    #     assert len(chart.get(0, 1)) == 1  # Still only one entry
-
-    # def test_chart_initializes_correctly(self):
-    #     chart = MCFGChart(length=5)
-    #     assert chart.length == 5
-    #     assert isinstance(chart.entries, defaultdict)
+    def test_chart_initializes_correctly(self):
+        chart = MCFGChart()
+        assert isinstance(chart.chart, dict)
+        assert len(chart.chart) == 0
+        assert chart.all_entries() == []
                 
 class TestMCFGRuleElement:
     def test_str_and_eq(self):

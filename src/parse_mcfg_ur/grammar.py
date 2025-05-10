@@ -1,6 +1,9 @@
 import re
 from collections import defaultdict
 
+from collections import defaultdict
+from typing import List, Tuple, Optional
+
 StringVariables = tuple[int, ...]
 SpanIndices = tuple[int, ...]
 SpanMap = dict[int, SpanIndices]
@@ -159,8 +162,8 @@ class MCFGRule:
 
         self._validate()
     
-    def is_terminal(self):
-        return len(self._right_side) == 1 and isinstance(self._right_side[0], MCFGRuleElement) and not self._right_side[0].string_variables
+    # def is_terminal(self):
+        # return len(self._right_side) == 1 and isinstance(self._right_side[0], MCFGRuleElement) and not self._right_side[0].string_variables
 
     def to_tuple(self) -> tuple[MCFGRuleElement, tuple[MCFGRuleElement, ...]]:
         return (self._left_side, self._right_side)
@@ -342,7 +345,12 @@ class MCFGRule:
             return vars_match and strvars_match
         else:
             return False 
-
+    
+    def is_terminal(self) -> bool:
+        # A rule is terminal if it has no right side and its left side uses string constants
+        return self.is_epsilon and all(
+            isinstance(sv, str) for svs in self.left_side.string_variables for sv in svs
+        )
     @classmethod
     def from_string(cls, rule_string) -> 'MCFGRule':
         """
@@ -406,23 +414,50 @@ class MCFGRule:
                 'string_yield is only implemented for epsilon rules'
             )
 from typing import List,Tuple
+
 def MCFGGrammar(grammar_text: str) -> List[MCFGRule]:
+    """
+    Parameters
+    ----------
+        grammar_text (str): A multiline string defining the MCFG grammar.
+
+    Returns
+    -------
+        List[MCFGRule]: A list of parsed MCFGRule objects.
+    """
     rules = []
     for line in grammar_text.strip().splitlines():
         line = line.strip()
         if not line or line.startswith("#"):
             continue
         rules.append(MCFGRule.from_string(line))
-    print(rules)
     return rules
 
 class MCFGChart:
+    """
+    A chart for storing partial parse results in MCFG parsing.
+
+    The chart maps string span tuples to lists of MCFGRuleElementInstance objects that
+    cover those spans.
+    """
     def __init__(self):
         self.chart = defaultdict(list)
 
     def add(self, symbol: str, spans: Tuple[Tuple[int, int], ...]):
+        """
+        Adds a new parse item (symbol over given spans) to the chart if not already present.
+
+        Parameters
+        ----------
+            symbol (str): The nonterminal label.
+            spans (Tuple[Tuple[int, int], ...]): A tuple of span pairs for each string component.
+
+        Returns
+        -------
+            MCFGRuleElementInstance or None: The added instance, or None if it already exists.
+        """
         instance = MCFGRuleElementInstance(symbol, *spans)
-        print("inMCFGCHart",instance)
+        # print("inMCFGCHart",instance)
         if instance not in self.chart[spans]:
             
             self.chart[spans].append(instance)
@@ -430,9 +465,27 @@ class MCFGChart:
         return None
 
     def get(self, spans: Tuple[Tuple[int, int], ...]) -> List[MCFGRuleElementInstance]:
+        """
+        Retrieves all chart entries that cover the given spans.
+
+        Parameters
+        -------
+            spans (Tuple[Tuple[int, int], ...]): The string spans to look up.
+
+        Returns
+        -------
+            List[MCFGRuleElementInstance]: A list of matching chart entries.
+        """
         return self.chart.get(spans, [])
 
     def all_entries(self) -> List[MCFGRuleElementInstance]:
+        """
+        Returns all entries currently stored in the chart.
+
+        Returns
+        -------
+            List[MCFGRuleElementInstance]: Flattened list of all chart items.
+        """
         return [item for sublist in self.chart.values() for item in sublist]
 
 
@@ -442,13 +495,32 @@ class MCFGParser:
         self.rules_by_rhs = self._index_rules_by_rhs()
 
     def _index_rules_by_rhs(self):
+        """
+        Indexes grammar rules by the sequence of right-hand side nonterminals.
+
+        Returns
+        -------
+            Dict[Tuple[str, ...], List[MCFGRule]]: Mapping from RHS nonterminal tuples to rules.
+        """
         index = defaultdict(list)
         for rule in self.rules:
             key = tuple(r.variable for r in rule.right_side)
             index[key].append(rule)
+            # print(f"Indexing rule: {rule} with key {key}")
         return index
 
     def parse(self, tokens: List[str]) -> List[MCFGRuleElementInstance]:
+        """
+        Parses a list of tokens using the MCFG rules provided at initialization.
+
+        Parameters
+        ---------
+            tokens (List[str]): The input string tokenized as a list of words.
+
+        Returns
+        -------
+            List[MCFGRuleElementInstance]: All parse items derived, including partial and full parses.
+        """
         n = len(tokens)
         chart = MCFGChart()
 
@@ -469,20 +541,24 @@ class MCFGParser:
                 for k in range(i+1, j):
                     left_spans = [(inst.variable, inst) for inst in chart.get(((i, k),))]
                     right_spans = [(inst.variable, inst) for inst in chart.get(((k, j),))]
+                    # print("here now",i,j,k, chart.get((i, k),), chart.get((k, j),))
                     for (left_var, left_inst) in left_spans:
                         for (right_var, right_inst) in right_spans:
                             key = (left_var, right_var)
-                            print("rule",rule)
                             for rule in self.rules_by_rhs.get(key, []):
-                                print(f"Trying to match key: {key}")
-                                print(f"Available rules for key: {self.rules_by_rhs.get(key)}")
+                                # print(f"Trying rule: {rule}")
+                                # print(f"Trying to match key: {key}")
+                                # print(f"Available rules for key: {self.rules_by_rhs.get(key)}")
                                 try:
                                     combined = rule.instantiate_left_side(left_inst, right_inst)
-                                    print(f"Instantiated: {combined}")
+                                    # print(f"Instantiated: {combined}")
                                     chart.add(combined.variable, combined.string_spans)
                                 except ValueError:
+                                    print("Instantiation failed:", e)
                                     continue
 
+        # for entry in chart.all_entries():
+            # print("Chart Entry:", entry)
         return chart.all_entries()
     def recognize(self, tokens: List[str], start_symbol: str = "S") -> bool:
         """
@@ -501,7 +577,7 @@ class MCFGParser:
             True if the string is recognized by the grammar, False otherwise.
         """
         final_instances = self.parse(tokens)
-        
+        print(final_instances)
         for inst in final_instances:
             # print(inst, inst.variable, start_symbol, len(inst.string_spans), inst.string_spans[0])
             if (inst.variable == start_symbol and
@@ -510,4 +586,5 @@ class MCFGParser:
                 return True
 
         return False
+
 
