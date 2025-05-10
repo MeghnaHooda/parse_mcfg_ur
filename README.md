@@ -19,16 +19,19 @@ This package provides a modular, testable system for parsing with MCFGs, which e
 
 ## 🗂️ Package Structure
 
+```text
 mcfg_parser/
-├── grammar/ # Rule and grammar representation
-│ └── MCFGRule, MCFGRuleElement, MCFGRuleElementInstance, MCFGGrammar
-├── parser/ # Agenda-based parser and parsing logic
-│ └── MCFGParser, MCFGChart
-├── tree/ # Parse tree representation and construction
-│ └── ParseTree
-├── tests/ # Pytest-based test suite
-│ ├── test_grammar.py
-│ ├── test_parser.py
-│ └── test_tree.py
+├── grammar/        # Rule and grammar representation
+│   └── MCFGRule, MCFGRuleElement, MCFGRuleElementInstance, MCFGGrammar
+├── parser/         # Agenda-based parser and parsing logic
+│   └── MCFGParser, MCFGChart
+├── tree/           # Parse tree representation and construction
+│   └── ParseTree
+├── tests/          # Pytest-based test suite
+│   ├── test_grammar.py
+│   ├── test_parser.py
+│   └── test_tree.py
 └── README.md
+```
+
 
