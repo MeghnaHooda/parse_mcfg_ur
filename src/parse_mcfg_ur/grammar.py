@@ -405,117 +405,109 @@ class MCFGRule:
             raise ValueError(
                 'string_yield is only implemented for epsilon rules'
             )
-
-class MCFGGrammar:
-    def __init__(self, terminals: set[str], nonterminals: dict[str, int], rules: list[MCFGRule], start: str):
-        self.terminals = terminals
-        self.nonterminals = nonterminals  # Nonterminal → arity
-        self.rules = rules
-        self.start = start
-
-    def __repr__(self):
-        return f"MCFGGrammar(start={self.start}, rules={[str(r) for r in self.rules]})"
-
-    def rules_for_lhs(self, lhs: str) -> list[MCFGRule]:
-        return [r for r in self.rules if r._left_side == lhs]
-
-class MCFGChartEntry:
-    def __init__(self, symbol: str, components: list[tuple[int, int]], backpointers=None):
-        self.symbol = symbol
-        self.components = components  # list of (i, j) spans
-        self.backpointers = backpointers or []
-
-    def __repr__(self):
-        print(self.components)
-        spans = ', '.join([f"[{i},{j}]" for i, j in self.components])
-        return f"{self.symbol} → {spans}"
+from typing import List,Tuple
+def MCFGGrammar(grammar_text: str) -> List[MCFGRule]:
+    rules = []
+    for line in grammar_text.strip().splitlines():
+        line = line.strip()
+        if not line or line.startswith("#"):
+            continue
+        rules.append(MCFGRule.from_string(line))
+    print(rules)
+    return rules
 
 class MCFGChart:
-    def __init__(self, length: int):
-        self.length = length
-        self.entries = defaultdict(set)  # (start, end) → set of MCFGChartEntry
+    def __init__(self):
+        self.chart = defaultdict(list)
 
-    def add(self, start: int, end: int, entry: MCFGChartEntry):
-        self.entries[(start, end)].add(entry)
+    def add(self, symbol: str, spans: Tuple[Tuple[int, int], ...]):
+        instance = MCFGRuleElementInstance(symbol, *spans)
+        print("inMCFGCHart",instance)
+        if instance not in self.chart[spans]:
+            
+            self.chart[spans].append(instance)
+            return instance
+        return None
 
-    def get(self, start: int, end: int) -> set:
-        return self.entries.get((start, end), set())
+    def get(self, spans: Tuple[Tuple[int, int], ...]) -> List[MCFGRuleElementInstance]:
+        return self.chart.get(spans, [])
 
-    def __getitem__(self, idx):
-        return self.entries[idx]
+    def all_entries(self) -> List[MCFGRuleElementInstance]:
+        return [item for sublist in self.chart.values() for item in sublist]
 
 
 class MCFGParser:
-    def __init__(self, grammar: MCFGGrammar):
-        self.grammar = grammar
+    def __init__(self, rules: List[MCFGRule]):
+        self.rules = rules
+        self.rules_by_rhs = self._index_rules_by_rhs()
 
-    def recognize(self, string: list[str]) -> bool:
-        chart = self._parse(string)
-        for entry in chart.get(0, len(string)):
-            if entry.symbol == self.grammar.start:
+    def _index_rules_by_rhs(self):
+        index = defaultdict(list)
+        for rule in self.rules:
+            key = tuple(r.variable for r in rule.right_side)
+            index[key].append(rule)
+        return index
+
+    def parse(self, tokens: List[str]) -> List[MCFGRuleElementInstance]:
+        n = len(tokens)
+        chart = MCFGChart()
+
+        # Insert terminal rules
+        for i, token in enumerate(tokens):
+            for rule in self.rules:
+                if rule.is_terminal():
+                    terminal = rule.left_side.string_variables[0][0]
+                    if terminal == token:
+                        instance = MCFGRuleElementInstance(rule.left_side.variable, (i, i+1))
+                        chart.add(instance.variable, instance.string_spans)
+
+
+        # Combine spans bottom-up
+        for length in range(1, n+1):
+            for i in range(n - length + 1):
+                j = i + length
+                for k in range(i+1, j):
+                    left_spans = [(inst.variable, inst) for inst in chart.get(((i, k),))]
+                    right_spans = [(inst.variable, inst) for inst in chart.get(((k, j),))]
+                    for (left_var, left_inst) in left_spans:
+                        for (right_var, right_inst) in right_spans:
+                            key = (left_var, right_var)
+                            print("rule",rule)
+                            for rule in self.rules_by_rhs.get(key, []):
+                                print(f"Trying to match key: {key}")
+                                print(f"Available rules for key: {self.rules_by_rhs.get(key)}")
+                                try:
+                                    combined = rule.instantiate_left_side(left_inst, right_inst)
+                                    print(f"Instantiated: {combined}")
+                                    chart.add(combined.variable, combined.string_spans)
+                                except ValueError:
+                                    continue
+
+        return chart.all_entries()
+    def recognize(self, tokens: List[str], start_symbol: str = "S") -> bool:
+        """
+        Check if the given tokens can be derived from the grammar's start symbol.
+
+        Parameters
+        ----------
+        tokens : List[str]
+            The input string as a list of terminal symbols.
+        start_symbol : str
+            The start symbol of the grammar (default is 'S').
+
+        Returns
+        -------
+        bool
+            True if the string is recognized by the grammar, False otherwise.
+        """
+        final_instances = self.parse(tokens)
+        
+        for inst in final_instances:
+            # print(inst, inst.variable, start_symbol, len(inst.string_spans), inst.string_spans[0])
+            if (inst.variable == start_symbol and
+                len(inst.string_spans) == 1 and
+                inst.string_spans[0] == (0, len(tokens))):
                 return True
+
         return False
 
-    def _parse(self, string: list[str]) -> MCFGChart:
-        n = len(string)
-        chart = MCFGChart(n)
-
-        # # Step 1: Handle lexical rules (terminals)
-        # for i in range(n):
-        #     token = string[i]
-        #     for rule in self.grammar.rules:
-        #         if not rule.rhs and rule.output == [[token]]:
-        #             entry = MCFGChartEntry(rule._left_side, [(i, i + 1)])
-        #             chart.add(i, i + 1, entry)
-        # Step 1: Handle lexical rules (terminals)
-        for i in range(n):
-            token = string[i]
-            for rule in self.grammar.rules:
-                if rule.is_terminal() and rule.right_side[0].variable == token:
-                    entry = MCFGChartEntry(rule.left_side.variable, [(i, i + 1)])
-                    chart.add(i, i + 1, entry)
-
-
-        # Step 2: Apply binary rules
-        added = True
-        while added:
-            added = False
-            for i in range(n):
-                for j in range(i + 1, n + 1):
-                    for k in range(i + 1, j):
-                        left_entries = chart.get(i, k)
-                        right_entries = chart.get(k, j)
-
-                        for r in self.grammar.rules:
-                            if len(r.rhs) != 2:
-                                continue  # Only binary rules for now
-
-                            left_var = r.rhs[0].var
-                            right_var = r.rhs[1].var
-
-                            for e1 in left_entries:
-                                for e2 in right_entries:
-                                    if e1.symbol == left_var and e2.symbol == right_var:
-                                        # Construct new components using output spec
-                                        new_components = []
-                                        for out in r.output:
-                                            combined = []
-                                            for sym in out:
-                                                if sym == f"{left_var}_0":
-                                                    combined += string[e1.components[0][0]:e1.components[0][1]]
-                                                elif sym == f"{right_var}_0":
-                                                    combined += string[e2.components[0][0]:e2.components[0][1]]
-                                            # For now, treat combined as a flat string span
-                                            span_start = min(e1.components[0][0], e2.components[0][0])
-                                            span_end = max(e1.components[0][1], e2.components[0][1])
-                                            new_components.append((span_start, span_end))
-
-                                        entry = MCFGChartEntry(r._left_side, new_components, backpointers=[e1, e2])
-                                        if entry not in chart.get(new_components[0][0], new_components[0][1]):
-                                            chart.add(new_components[0][0], new_components[0][1], entry)
-                                            added = True
-
-        return chart
-'''
-This version simplifies things by assuming each rule has one output tuple and uses only one span per component.
-'''
