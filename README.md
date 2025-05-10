@@ -22,11 +22,11 @@ This package provides a modular, testable system for parsing with MCFGs, which e
 ```text
 mcfg_parser/
 ├── grammar/        # Rule and grammar representation
-│   └── MCFGRule, MCFGRuleElement, MCFGRuleElementInstance, MCFGGrammar
+│   └── MCFGRule, MCFGRuleElement, MCFGRuleElementInstance, MCFGGrammar, MCFGParser, MCFGChart
 ├── parser/         # Agenda-based parser and parsing logic
-│   └── MCFGParser, MCFGChart
+│   └── CKYParser, EarleyParser
 ├── tree/           # Parse tree representation and construction
-│   └── ParseTree
+│   └── Tree
 ├── tests/          # Pytest-based test suite
 │   ├── test_grammar.py
 │   ├── test_parser.py
