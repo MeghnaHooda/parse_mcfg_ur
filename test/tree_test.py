@@ -59,9 +59,9 @@ def test_tree_relabel():
     assert relabeled.children[0].data == "np"
 
 
-# def test_tree_from_list():
-#     treelist = ["S", ["NP"], ["VP"]]
-#     t = Tree.from_list(treelist)
-#     assert t.data == "S"
-#     assert len(t.children) == 2
-#     assert t.children[1].data == "VP"
+def test_tree_from_list():
+    treelist = ["S", "NP", "VP"]
+    t = Tree.from_list(treelist)
+    assert t.data == "S"
+    assert len(t.children) == 2
+    assert t.children[1].data == "VP"

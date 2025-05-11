@@ -87,14 +87,40 @@ def simple_grammar_text():
     S(xy) -> NP(x) VP(y)
     """.strip()
 @pytest.fixture
-def simple_grammar(simple_grammar_text):
-    return MCFGGrammar(simple_grammar_text)
+def simple_grammar(sample_grammar_text):
+    return MCFGGrammar(sample_grammar_text)
 
 @pytest.fixture
 def parser(simple_grammar):
     return MCFGParser(simple_grammar)
 
 class TestMCFGparser:
+
+    @pytest.mark.parametrize("valid_sentence", [
+        ['the', 'human', 'believes', 'the', 'greyhound'], #simple sentence
+        ['a', 'greyhound', 'believes', 'a', 'human'], #simple sentence with different determiner
+        ['which', 'greyhound', 'believes', 'the', 'human'], #wh sentence
+        ['that', 'the', 'human', 'believes', 'the', 'greyhound'], #clause sentence
+        ['who', 'the', 'human','believes', 'the', 'greyhound'],  # subject wh-question
+    ])
+    def test_parser_accepts_valid_sentences(self, parser, valid_sentence):
+        assert parser.recognize(valid_sentence) is True
+
+    @pytest.mark.parametrize("invalid_sentence", [
+        ['human', 'believes', 'the', 'greyhound'],  # missing determiner
+        ['the', 'dog', 'the', 'cat'],              # missing verb
+        ['believes', 'the', 'dog'],                # starts with verb
+        ['the', 'teacher'],                        # incomplete
+        ['the', 'robot', 'scans'],                 # missing object
+    ])
+    def test_parser_rejects_invalid_sentences(self, parser, invalid_sentence):
+        assert parser.recognize(invalid_sentence) is False
+
+    def test_parser_parse_produces_chart_with_S(self, parser):
+        sentence = ['the', 'human', 'believes', 'the', 'greyhound']
+        chart = list(parser.parse(sentence))
+        assert any(entry.variable == "S" for entry in chart)
+
     def test_parser_recognize_accepts_valid_string(self, parser):
         string = ['the', 'human', 'believes','the', 'greyhound']
         assert parser.recognize(string) == True
@@ -113,7 +139,7 @@ class TestMCFGparser:
 class TestMCFGComponents:
 
     def test_mcfg_grammar_parses_all_rules(self, simple_grammar):
-        assert len(simple_grammar) == 11
+        assert len(simple_grammar) == 49
 
     def test_mcfg_grammar_contains_terminal_and_nonterminal(self,simple_grammar):
         assert any(rule.is_terminal() for rule in simple_grammar)

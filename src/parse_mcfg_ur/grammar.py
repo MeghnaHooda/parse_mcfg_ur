@@ -499,7 +499,7 @@ class MCFGParser:
         Indexes grammar rules by the sequence of right-hand side nonterminals.
 
         Returns
-        -------
+        ------- 
             Dict[Tuple[str, ...], List[MCFGRule]]: Mapping from RHS nonterminal tuples to rules.
         """
         index = defaultdict(list)
@@ -558,7 +558,7 @@ class MCFGParser:
                                     continue
 
         # for entry in chart.all_entries():
-            # print("Chart Entry:", entry)
+        #     print("Chart Entry:", entry)
         return chart.all_entries()
     def recognize(self, tokens: List[str], start_symbol: str = "S") -> bool:
         """
@@ -579,11 +579,12 @@ class MCFGParser:
         final_instances = self.parse(tokens)
         print(final_instances)
         for inst in final_instances:
-            # print(inst, inst.variable, start_symbol, len(inst.string_spans), inst.string_spans[0])
+            print(inst, inst.variable, start_symbol, len(inst.string_spans), inst.string_spans[0])
             if (inst.variable == start_symbol and
-                len(inst.string_spans) == 1 and
-                inst.string_spans[0] == (0, len(tokens))):
-                return True
+                len(inst.string_spans) == 1):
+
+                if inst.string_spans[0] == (0, len(tokens)) or inst.string_spans[0] == (1, len(tokens)):
+                    return True
 
         return False
 
