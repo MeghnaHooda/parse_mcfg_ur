@@ -9,7 +9,7 @@ SpanIndices = tuple[int, ...]
 SpanMap = dict[int, SpanIndices]
 
 
-"""Type aliases for readability
+"""aliases for Variables
 
 Attributes
 ----------
